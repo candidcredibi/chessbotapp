@@ -1,0 +1,6 @@
+{
+  "summary": "Implementation plan for Chess Helper: an Android overlay assistant for Chess.com that reads the screen, detects chessboards via computer vision, computes best moves with an evaluation engine, and renders interactive hint arrows directly over the game.",
+  "updatedAt": "2026-10-15T21:44:04.799611457Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Chess Helper",
+  "description": "Real-time AI Chess Assistant overlay for Chess.com featuring computer vision, multi-variation engine analysis, move explanations, and visual arrow hints.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

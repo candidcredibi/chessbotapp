@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">Chess Helper</string>
+    <string name="accessibility_service_description">Обнаруживает открытие приложения Chess.com для автоматической активации и паузы оверлея подсказок.</string>
+    
+    <!-- General -->
+    <string name="status_active">Активен</string>
+    <string name="status_paused">На паузе</string>
+    <string name="status_searching">Поиск доски…</string>
+    <string name="status_tracking">Слежение за доской</string>
+    <string name="status_idle">Ожидание запуска</string>
+    <string name="status_lost">Доска не найдена</string>
+    
+    <!-- Service Notification -->
+    <string name="notification_channel_name">Служба Chess Helper</string>
+    <string name="notification_channel_desc">Отображает статус работы экранного помощника и быстрые действия.</string>
+    <string name="notification_title">Chess Helper запущен</string>
+    <string name="notification_text">Анализ экрана активен. Откройте Chess.com.</string>
+    <string name="notification_action_pause">Пауза</string>
+    <string name="notification_action_resume">Продолжить</string>
+    <string name="notification_action_stop">Остановить</string>
+
+    <!-- Disclosures & Legal -->
+    <string name="disclosure_overlay_title">Отображение поверх других приложений</string>
+    <string name="disclosure_overlay_desc">Необходимо для рисования стрелок с лучшими ходами и отображения плавающего виджета управления прямо поверх партии в Chess.com.</string>
+    <string name="disclosure_projection_title">Захват экрана (MediaProjection)</string>
+    <string name="disclosure_projection_desc">Используется исключительно для локального считывания шахматной доски на вашем устройстве. Никакие изображения или личные данные не сохраняются и не передаются в сеть.</string>
+    <string name="disclosure_notifications_title">Уведомления службы</string>
+    <string name="disclosure_notifications_desc">Требуются системой Android для поддержания фонового анализа экрана и быстрого управления через шторку.</string>
+    <string name="disclaimer_chess_com">Приложение разработано исключительно в образовательных целях для анализа позиций и обучения новичков. Chess Helper не аффилирован и не связан с Chess.com.</string>
+</resources>

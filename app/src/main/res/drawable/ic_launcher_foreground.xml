@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Tactical Grid accent lines -->
+    <path
+        android:pathData="M34,30 L74,30 M34,54 L74,54 M34,78 L74,78 M34,30 L34,78 M54,30 L54,78 M74,30 L74,78"
+        android:strokeWidth="1"
+        android:strokeColor="#253858" />
+
+    <!-- Hint Target Arrow -->
+    <path
+        android:pathData="M66,32 L78,44 L72,44 L72,60 L62,60 L62,44 L56,44 Z"
+        android:fillColor="#00E676" />
+
+    <!-- Chess Knight Silhouette -->
+    <path
+        android:pathData="M48,34 C46,34 42,36 39,40 C36,44 35,49 36,54 C37,58 39,60 41,61 C39,64 38,68 38,72 L66,72 C66,69 65,65 64,62 C63,59 64,57 65,54 C66,51 67,46 66,42 C65,37 60,34 55,34 C53,34 51,33 50,33 C49,33 48,34 48,34 Z M42,43 C43.1,43 44,43.9 44,45 C44,46.1 43.1,47 42,47 C40.9,47 40,46.1 40,45 C40,43.9 40.9,43 42,43 Z"
+        android:fillColor="#F0F4F8" />
+
+    <!-- Base Plate -->
+    <path
+        android:pathData="M34,74 L70,74 C71.1,74 72,74.9 72,76 C72,77.1 71.1,78 70,78 L34,78 C32.9,78 32,77.1 32,76 C32,74.9 32.9,74 34,74 Z"
+        android:fillColor="#00E5FF" />
+</vector>
