@@ -85,6 +85,7 @@ import kotlin.math.roundToInt
 fun DashboardScreen(
     viewModel: MainViewModel,
     onLaunchOverlayRequested: () -> Unit,
+    onLaunchScreenCaptureRequested: () -> Unit,
     onStopOverlayRequested: () -> Unit
 ) {
     val context = LocalContext.current
@@ -202,9 +203,9 @@ fun DashboardScreen(
 
                 Text(
                     text = if (isRunning) {
-                        "Плавающий пузырёк и невидимый слой анализа запущены поверх экрана. Перейдите в Chess.com для игры."
+                        "Оверлей запущен поверх других окон! Экран НЕ блокируется — вы можете свободно играть в Chess.com, а подсказки отображаются прямо поверх."
                     } else {
-                        "Запустите помощник, чтобы отображать подсказки ходов и оценку позиции прямо во время игры в Chess.com."
+                        "Запустите оверлей поверх всех окон. Он работает прозрачно и не мешает касаниям в сторонних приложениях."
                     },
                     fontSize = 13.sp,
                     color = TextSecondary,
@@ -215,21 +216,34 @@ fun DashboardScreen(
 
                 // Launch / Stop Button
                 if (!isRunning) {
-                    Button(
-                        onClick = onLaunchOverlayRequested,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ChessGreenPrimary,
-                            contentColor = ChessGreenOnPrimary
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("launch_overlay_button")
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Запустить помощник", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = onLaunchOverlayRequested,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ChessGreenPrimary,
+                                contentColor = ChessGreenOnPrimary
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .testTag("launch_overlay_button")
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Запустить оверлей", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = onLaunchScreenCaptureRequested,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = CyanAccent),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.ElectricBolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Включить авто-сканирование экрана", fontSize = 13.sp)
+                        }
                     }
                 } else {
                     Button(

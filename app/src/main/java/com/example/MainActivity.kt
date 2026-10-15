@@ -43,11 +43,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                 val settings by viewModel.settings.collectAsState()
                 var currentTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD) }
 
-                // MediaProjection Activity Result Launcher
+                // MediaProjection Activity Result Launcher (optional AI camera auto-capture)
                 val projectionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
@@ -102,24 +102,33 @@ class MainActivity : ComponentActivity() {
                             putExtra(ChessOverlayService.EXTRA_RESULT_DATA, result.data)
                         }
                         ContextCompat.startForegroundService(context, serviceIntent)
-                        Toast.makeText(context, "Chess Helper запущен!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Авто-сканирование экрана запущено!", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Для захвата доски необходимо подтвердить разрешение", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Разрешение на захват экрана отменено", Toast.LENGTH_SHORT).show()
                     }
                 }
 
+                // Direct overlay launcher using SYSTEM_ALERT_WINDOW (no screen-share prompt forced!)
                 val onLaunchOverlay: () -> Unit = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                        Toast.makeText(context, "Предоставьте разрешение на отображение поверх других окон", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Разрешите «Отображение поверх других приложений» для Chess Helper", Toast.LENGTH_LONG).show()
                         val intent = Intent(
                             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                             Uri.parse("package:${context.packageName}")
                         )
                         context.startActivity(intent)
                     } else {
-                        val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                        projectionLauncher.launch(projectionManager.createScreenCaptureIntent())
+                        val serviceIntent = Intent(context, ChessOverlayService::class.java).apply {
+                            action = ChessOverlayService.ACTION_START
+                        }
+                        ContextCompat.startForegroundService(context, serviceIntent)
+                        Toast.makeText(context, "Оверлей запущен! Экран не блокируется.", Toast.LENGTH_SHORT).show()
                     }
+                }
+
+                val onLaunchScreenCapture: () -> Unit = {
+                    val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    projectionLauncher.launch(projectionManager.createScreenCaptureIntent())
                 }
 
                 val onStopOverlay: () -> Unit = {
@@ -127,6 +136,7 @@ class MainActivity : ComponentActivity() {
                         action = ChessOverlayService.ACTION_STOP
                     }
                     context.startService(stopIntent)
+                    Toast.makeText(context, "Оверлей остановлен", Toast.LENGTH_SHORT).show()
                 }
 
                 if (!settings.onboardingCompleted) {
@@ -181,6 +191,7 @@ class MainActivity : ComponentActivity() {
                                 AppTab.DASHBOARD -> DashboardScreen(
                                     viewModel = viewModel,
                                     onLaunchOverlayRequested = onLaunchOverlay,
+                                    onLaunchScreenCaptureRequested = onLaunchScreenCapture,
                                     onStopOverlayRequested = onStopOverlay
                                 )
                                 AppTab.SIMULATOR -> SimulatorScreen(viewModel = viewModel)

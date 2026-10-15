@@ -7,8 +7,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
-import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
@@ -18,6 +18,9 @@ import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.core.model.BoardPosition
+import com.example.core.model.ChessMove
+import com.example.core.model.FenParser
+import com.example.core.model.Square
 import com.example.engine.ChessEngine
 import com.example.engine.EngineEvaluation
 import com.example.engine.EngineStyle
@@ -89,18 +92,63 @@ class ChessOverlayService : Service() {
             ACTION_START -> {
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
                 val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
+
+                val notification = buildNotification(
+                    if (resultCode != 0) "Анализ экрана активен" else "Оверлей активен поверх окон"
+                )
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    if (resultCode != 0 && resultData != null) {
+                        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                    } else {
+                        startForeground(NOTIFICATION_ID, notification)
+                    }
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
+
+                initOverlays()
+                _isRunningFlow.value = true
+
                 if (resultCode != 0 && resultData != null) {
-                    startForeground(NOTIFICATION_ID, buildNotification("Анализ активен. Откройте шахматную доску."))
-                    initOverlays()
                     initScreenCapture(resultCode, resultData)
-                    _isRunningFlow.value = true
+                } else {
+                    // Show initial sample arrows so user sees the overlay immediately working!
+                    showInitialDemoArrows()
                 }
             }
         }
         return START_STICKY
     }
 
+    private fun showInitialDemoArrows() {
+        serviceScope.launch {
+            val startBoard = FenParser.parse(FenParser.STARTING_FEN)
+            lastAnalyzedPosition = startBoard
+            val evals = withContext(Dispatchers.Default) {
+                chessEngine.analyze(startBoard, depth = 8, multiPv = 3, style = currentStyle)
+            }
+            latestEvaluations = evals
+            _latestEvalsFlow.value = evals
+
+            // Provide default screen region for arrows
+            val metrics = resources.displayMetrics
+            val boardW = (metrics.widthPixels * 0.96f).toInt()
+            val left = (metrics.widthPixels - boardW) / 2
+            val top = (metrics.heightPixels * 0.35f).toInt()
+            val dummyRoi = BoardRoi(
+                bounds = android.graphics.Rect(left, top, left + boardW, top + boardW)
+            )
+            currentBoardRoi = dummyRoi
+            arrowView?.updateEvaluations(evals, dummyRoi)
+        }
+    }
+
     private fun initOverlays() {
+        if (arrowView != null && bubbleView != null) return
+
         // 1. Fullscreen transparent pass-through canvas for arrows
         val arrowParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -122,7 +170,7 @@ class ChessOverlayService : Service() {
         arrowView = OverlayArrowView(this)
         windowManager.addView(arrowView, arrowParams)
 
-        // 2. Floating interactive bubble
+        // 2. Floating interactive bubble (strictly sized to 64x64 dp when collapsed so screen is NOT blocked)
         bubbleView = FloatingBubbleView(
             context = this,
             windowManager = windowManager,
@@ -132,6 +180,7 @@ class ChessOverlayService : Service() {
                     arrowView?.clearArrows()
                 } else {
                     positionTracker.resume()
+                    reanalyzeCurrent()
                 }
             },
             onStyleChanged = { newStyle ->
@@ -145,7 +194,7 @@ class ChessOverlayService : Service() {
                     val explanation = MoveExplainer.explainMove(pos, top.move, top)
                     bubbleView?.showExplanation(explanation)
                 } else {
-                    bubbleView?.showExplanation("Позиция анализируется… Подождите обнаружения доски.")
+                    bubbleView?.showExplanation("Анализ позиции активен. Откройте доску для расчёта.")
                 }
             },
             onCloseClick = {

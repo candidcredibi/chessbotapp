@@ -1,13 +1,11 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,7 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -42,21 +42,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.model.BoardPosition
 import com.example.core.model.PieceColor
 import com.example.core.model.Square
-import com.example.engine.EngineEvaluation
 import com.example.ui.MainViewModel
 import com.example.ui.theme.ArrowAlternative2
 import com.example.ui.theme.ArrowAlternative3
@@ -101,15 +101,16 @@ fun SimulatorScreen(viewModel: MainViewModel) {
         ) {
             Column {
                 Text(
-                    text = "Тестовый симулятор",
+                    text = "Тестовая доска",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
                 Text(
-                    text = "Ход: ${if (board.activeColor == PieceColor.WHITE) "Белые" else "Чёрные"}",
+                    text = if (board.activeColor == PieceColor.WHITE) "Ход белых" else "Ход чёрных",
                     fontSize = 13.sp,
-                    color = if (board.activeColor == PieceColor.WHITE) Color.White else TacticalAmber
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (board.activeColor == PieceColor.WHITE) ChessGreenPrimary else TacticalAmber
                 )
             }
 
@@ -143,18 +144,48 @@ fun SimulatorScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Interactive Chessboard Container with Arrows Canvas Overlay
-        BoxWithConstraints(
+        // Interactive Chessboard Container
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .border(2.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-        ) {
-            val boardSizePx = constraints.maxWidth.toFloat()
-            val squareSizePx = boardSizePx / 8f
+                .clip(RoundedCornerShape(14.dp))
+                .border(2.dp, Color(0xFF334155), RoundedCornerShape(14.dp))
+                .testTag("chessboard_container")
+                .pointerInput(board, selectedSquare, legalMoves) {
+                    detectTapGestures { offset ->
+                        val squareWidth = size.width / 8f
+                        val squareHeight = size.height / 8f
+                        val file = (offset.x / squareWidth).toInt().coerceIn(0, 7)
+                        val rank = (7 - (offset.y / squareHeight).toInt()).coerceIn(0, 7)
+                        viewModel.onSquareClick(Square(file, rank))
+                    }
+                }
+                .drawWithContent {
+                    drawContent()
 
-            // 1. Squares & Pieces Grid
+                    // Draw best move arrows on top of content without intercepting touches
+                    val squareW = size.width / 8f
+                    val squareH = size.height / 8f
+                    evals.forEachIndexed { index, eval ->
+                        val move = eval.move
+                        val startX = (move.from.file + 0.5f) * squareW
+                        val startY = (7 - move.from.rank + 0.5f) * squareH
+                        val endX = (move.to.file + 0.5f) * squareW
+                        val endY = (7 - move.to.rank + 0.5f) * squareH
+
+                        val arrowColor = when (index) {
+                            0 -> ArrowBestMove
+                            1 -> ArrowAlternative2
+                            else -> ArrowAlternative3
+                        }
+                        val shaftW = squareW * (if (index == 0) 0.20f else 0.14f)
+
+                        drawCanvasArrow(this, startX, startY, endX, endY, arrowColor, shaftW)
+                    }
+                }
+        ) {
+            // Chessboard Squares & Pieces
             Column(modifier = Modifier.fillMaxSize()) {
                 for (r in 7 downTo 0) {
                     Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -175,60 +206,55 @@ fun SimulatorScreen(viewModel: MainViewModel) {
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxSize()
-                                    .background(bgColor)
-                                    .clickable { viewModel.onSquareClick(square) },
+                                    .background(bgColor),
                                 contentAlignment = Alignment.Center
                             ) {
-                                // Draw Piece Symbol
+                                // Piece representation with high contrast on any square
                                 piece?.let {
+                                    val isWhitePiece = it.color == PieceColor.WHITE
                                     Text(
                                         text = it.unicodeSymbol,
-                                        fontSize = 32.sp,
-                                        color = if (it.color == PieceColor.WHITE) Color.White else Color.Black,
+                                        fontSize = 34.sp,
+                                        style = TextStyle(
+                                            color = if (isWhitePiece) Color.White else Color(0xFF111827),
+                                            shadow = if (isWhitePiece) {
+                                                Shadow(color = Color(0xFF1E293B), blurRadius = 8f)
+                                            } else {
+                                                Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 4f)
+                                            }
+                                        ),
                                         textAlign = TextAlign.Center
                                     )
                                 }
 
-                                // Legal Target Marker
+                                // Legal move target indicator
                                 if (isLegalTarget) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(if (piece != null) 34.dp else 14.dp)
-                                            .border(
-                                                width = if (piece != null) 3.dp else 0.dp,
-                                                color = Color(0x99000000),
-                                                shape = CircleShape
-                                            )
-                                            .background(
-                                                if (piece != null) Color.Transparent else Color(0x55000000),
-                                                CircleShape
-                                            )
-                                    )
+                                    if (piece != null) {
+                                        // Capture target ring
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .border(
+                                                    width = 3.5.dp,
+                                                    color = Color(0xCC00E676),
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                    } else {
+                                        // Move target dot
+                                        Box(
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .background(
+                                                    color = Color(0x88000000),
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
-
-            // 2. Vector Arrows Canvas Overlay
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                evals.forEachIndexed { index, eval ->
-                    val move = eval.move
-                    // Convert move coords to canvas px
-                    val startX = (move.from.file + 0.5f) * squareSizePx
-                    val startY = (7 - move.from.rank + 0.5f) * squareSizePx
-                    val endX = (move.to.file + 0.5f) * squareSizePx
-                    val endY = (7 - move.to.rank + 0.5f) * squareSizePx
-
-                    val arrowColor = when (index) {
-                        0 -> ArrowBestMove
-                        1 -> ArrowAlternative2
-                        else -> ArrowAlternative3
-                    }
-                    val shaftW = squareSizePx * (if (index == 0) 0.22f else 0.16f)
-
-                    drawCanvasArrow(this, startX, startY, endX, endY, arrowColor, shaftW)
                 }
             }
         }
@@ -243,7 +269,7 @@ fun SimulatorScreen(viewModel: MainViewModel) {
                 contentColor = ChessGreenOnPrimary
             ),
             shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("sim_explain_button")
         ) {
             Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -275,11 +301,31 @@ fun SimulatorScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Actions: Reset & Flip
+        // Quick Controls: Play Best Move & Reset
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            evals.firstOrNull()?.let { top ->
+                Button(
+                    onClick = {
+                        // Make best move on board
+                        viewModel.onSquareClick(top.move.from)
+                        viewModel.onSquareClick(top.move.to)
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DarkSurfaceVariant,
+                        contentColor = ChessGreenPrimary
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Сделать ход (${top.move.uci})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
             OutlinedButton(
                 onClick = { viewModel.resetSimBoard() },
                 shape = RoundedCornerShape(12.dp),
@@ -288,7 +334,7 @@ fun SimulatorScreen(viewModel: MainViewModel) {
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Сброс доски", fontSize = 13.sp)
+                Text("Сброс доски", fontSize = 12.sp)
             }
         }
     }

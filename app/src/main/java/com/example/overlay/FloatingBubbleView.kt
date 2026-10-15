@@ -10,8 +10,6 @@ import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,24 +29,18 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,10 +88,14 @@ class FloatingBubbleView(
     override val viewModelStore: ViewModelStore get() = store
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
+    private val density = context.resources.displayMetrics.density
+    private val bubbleSizePx = (64 * density).toInt()
+    private val drawerWidthPx = (290 * density).toInt()
+
     private val composeView: ComposeView = ComposeView(context)
     val layoutParams = WindowManager.LayoutParams(
-        WindowManager.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.WRAP_CONTENT,
+        bubbleSizePx,
+        bubbleSizePx,
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -110,8 +106,8 @@ class FloatingBubbleView(
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.TOP or Gravity.START
-        x = 50
-        y = 300
+        x = 40
+        y = 260
     }
 
     private var initialX = 0
@@ -121,9 +117,9 @@ class FloatingBubbleView(
     private var isDragging = false
 
     var isPausedState by mutableStateOf(false)
-    var selectedStyle by mutableStateOf(EngineStyle.SAFE)
     var isExpanded by mutableStateOf(false)
     var explanationText by mutableStateOf<String?>(null)
+    var currentMoveInfo by mutableStateOf("Готов к ходам")
 
     init {
         savedStateRegistryController.performRestore(null)
@@ -148,7 +144,19 @@ class FloatingBubbleView(
 
     fun showExplanation(text: String) {
         explanationText = text
-        isExpanded = true
+        setExpandedState(true)
+    }
+
+    private fun setExpandedState(expanded: Boolean) {
+        isExpanded = expanded
+        if (expanded) {
+            layoutParams.width = drawerWidthPx
+            layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        } else {
+            layoutParams.width = bubbleSizePx
+            layoutParams.height = bubbleSizePx
+        }
+        windowManager.updateViewLayout(composeView, layoutParams)
     }
 
     private fun setupDragListener() {
@@ -160,12 +168,12 @@ class FloatingBubbleView(
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     isDragging = false
-                    false
+                    true // Return true to receive subsequent moves and up
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - initialTouchX).toInt()
                     val dy = (event.rawY - initialTouchY).toInt()
-                    if (abs(dx) > 10 || abs(dy) > 10) {
+                    if (abs(dx) > 12 || abs(dy) > 12) {
                         isDragging = true
                         layoutParams.x = initialX + dx
                         layoutParams.y = initialY + dy
@@ -175,12 +183,16 @@ class FloatingBubbleView(
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!isDragging) {
-                        // Click action: Toggle expand
-                        isExpanded = !isExpanded
+                        // Toggle drawer expand
+                        setExpandedState(!isExpanded)
                     } else {
-                        // Snap to edge
-                        val screenWidth = context.resources.displayMetrics.widthWidth()
-                        layoutParams.x = if (layoutParams.x + 60 > screenWidth / 2) screenWidth - 140 else 20
+                        // Snap smoothly to closest screen edge
+                        val screenWidth = context.resources.displayMetrics.widthPixels
+                        layoutParams.x = if (layoutParams.x + bubbleSizePx / 2 > screenWidth / 2) {
+                            screenWidth - (if (isExpanded) drawerWidthPx else bubbleSizePx) - 10
+                        } else {
+                            10
+                        }
                         windowManager.updateViewLayout(composeView, layoutParams)
                     }
                     true
@@ -190,20 +202,18 @@ class FloatingBubbleView(
         }
     }
 
-    private fun android.util.DisplayMetrics.widthWidth(): Int = widthPixels
-
     @Composable
     private fun FloatingControlContent() {
         Column(
             horizontalAlignment = Alignment.End,
-            modifier = Modifier.padding(8.dp)
+            modifier = Modifier.padding(4.dp)
         ) {
             // Floating Bubble Icon
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(56.dp)
-                    .shadow(10.dp, CircleShape)
+                    .shadow(12.dp, CircleShape)
                     .clip(CircleShape)
                     .background(DarkSurface)
             ) {
@@ -218,16 +228,16 @@ class FloatingBubbleView(
             // Expanded Mini Control Drawer
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant.copy(alpha = 0.95f)),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant.copy(alpha = 0.98f)),
                     modifier = Modifier
-                        .width(280.dp)
-                        .padding(top = 10.dp)
-                        .shadow(12.dp, RoundedCornerShape(20.dp))
+                        .width(276.dp)
+                        .padding(top = 8.dp)
+                        .shadow(16.dp, RoundedCornerShape(20.dp))
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
@@ -235,21 +245,30 @@ class FloatingBubbleView(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = "Chess Helper",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 15.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isPausedState) TacticalAmber else ChessGreenPrimary)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Chess Helper",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 15.sp
+                                )
+                            }
                             IconButton(
-                                onClick = { isExpanded = false },
+                                onClick = { setExpandedState(false) },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(Icons.Default.Close, contentDescription = "Свернуть", tint = Color.LightGray)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Pause / Resume Button
                         Button(
@@ -270,10 +289,10 @@ class FloatingBubbleView(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (isPausedState) "Возобновить анализ" else "Приостановить анализ")
+                            Text(if (isPausedState) "Возобновить" else "Пауза стрелок")
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         // Explain Move Button
                         Button(
@@ -292,7 +311,7 @@ class FloatingBubbleView(
 
                         // Explanation popup text
                         explanationText?.let { explanation ->
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = DarkBackground,
@@ -308,17 +327,24 @@ class FloatingBubbleView(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Close service
+                        // Close service action
                         Row(
-                            horizontalArrangement = Arrangement.End,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Закрыть оверлей",
+                                text = "Не блокирует экран",
+                                color = Color(0xFF64748B),
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                text = "Закрыть",
                                 color = Color(0xFFFF5252),
                                 fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
                                 modifier = Modifier
                                     .clickable { onCloseClick() }
                                     .padding(vertical = 4.dp, horizontal = 8.dp)

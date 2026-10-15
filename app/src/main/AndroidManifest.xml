@@ -5,8 +5,9 @@
     <!-- Screen overlay for drawing hint arrows -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <!-- Foreground services for screen capture session -->
+    <!-- Foreground services for screen overlay & capture session -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <!-- System notifications for foreground service status -->
@@ -37,12 +38,16 @@
             </intent-filter>
         </activity>
 
-        <!-- MediaProjection & Overlay Foreground Service -->
+        <!-- Overlay and Screen Capture Service -->
         <service
             android:name=".overlay.ChessOverlayService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="specialUse|mediaProjection">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating interactive overlay for chess move calculation and educational assistance" />
+        </service>
 
         <!-- Optional Accessibility Service to detect foreground Chess.com package -->
         <service
